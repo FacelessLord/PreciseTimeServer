@@ -2,8 +2,8 @@ import datetime
 import struct
 
 
-def get_fraction(number, precision):
-    return int((number - int(number)) * 2 ** precision)
+def get_fraction(number, precision) -> int:
+    return int((number - int(number)) * (2 ** precision))
 
 
 CALENDAR_BEGINNING = datetime.datetime(1900, 1, 1)
@@ -11,7 +11,7 @@ REFERENCE = datetime.datetime.now()
 
 
 class NTPPacket:
-    _FORMAT = "!B B b b 11I"
+    _FORMAT = "!B B b b 2I 4s 8I"
 
     def __init__(self,
                  send_timestamp=datetime.datetime.now(),
@@ -27,8 +27,6 @@ class NTPPacket:
         self.version_number = version_number
         # Mode of sender (3 bits)
         self.mode = mode
-        # The level of "layering" reading time (1 byte)
-        self.stratum = 1
         # Interval between requests (1 byte)
         self.poll = 0
         self.precision = 0
@@ -37,21 +35,25 @@ class NTPPacket:
         # Scatter the clock NTP-server (4 bytes)
         self.root_dispersion = 0
         # Indicator of clocks (4 bytes)
-        self.ref_id = "PPS"
+        self.ref_id = b"PPS\0"
         # Last update time on server (8 bytes)
         self.reference = (REFERENCE - CALENDAR_BEGINNING).total_seconds()
         if mode == 3:  # client
             # Time of sending packet from local machine (8 bytes)
-            self.originate = (send_timestamp - CALENDAR_BEGINNING) \
+            self.origin = (send_timestamp - CALENDAR_BEGINNING) \
                 .total_seconds()
             # Time of sending answer from server (8 bytes)
             self.transmit = 0
+            # The level of "layering" reading time (1 byte)
+            self.stratum = 0  # Client don't know server NTP stratum
         elif mode == 4:  # server
             # Time of sending packet from local machine (8 bytes)
             self.transmit = (send_timestamp - CALENDAR_BEGINNING) \
                 .total_seconds()
             # Time of sending answer from server (8 bytes)
-            self.originate = 0
+            self.origin = 0
+            # The level of "layering" reading time (1 byte)
+            self.stratum = 1
 
         self.receive = 0
 
@@ -71,21 +73,23 @@ class NTPPacket:
         return self
 
     def get_bytes(self):
+        # "!B B b b 2I 4s 8I"
+        print(self.ref_id[3])
         return struct.pack(NTPPacket._FORMAT,
                            (self.leap_indicator << 6) +
-                           (self.version_number << 3) + self.mode,
-                           self.stratum,
-                           self.poll,
-                           self.precision,
+                           (self.version_number << 3) + self.mode,  # B
+                           self.stratum,  # B
+                           self.poll,  # b
+                           self.precision,  # b
                            int(self.root_delay) + get_fraction(
-                               self.root_delay, 16),
+                               self.root_delay, 16),  # I
                            int(self.root_dispersion) +
-                           get_fraction(self.root_dispersion, 16),
+                           get_fraction(self.root_dispersion, 16),  # I
                            self.ref_id,
                            int(self.reference),
                            get_fraction(self.reference, 32),
-                           int(self.originate),
-                           get_fraction(self.originate, 32),
+                           int(self.origin),
+                           get_fraction(self.origin, 32),
                            int(self.receive),
                            get_fraction(self.receive, 32),
                            int(self.transmit),
@@ -110,19 +114,20 @@ class NTPPacket:
                                (unpacked_data[5] & 0xFFFF) / 2 ** 16
 
         # 4 bytes
-        self.ref_id = str((unpacked_data[6] >> 24) & 0xFF) + " " + \
-                      str((unpacked_data[6] >> 16) & 0xFF) + " " + \
-                      str((unpacked_data[6] >> 8) & 0xFF) + " " + \
-                      str(unpacked_data[6] & 0xFF)
+        self.ref_id = unpacked_data[6]
 
+        # 8 bytes
         self.reference = unpacked_data[7] \
-                         + unpacked_data[8] / 2 ** 32  # 8 bytes
-        self.originate = unpacked_data[9] \
-                         + unpacked_data[10] / 2 ** 32  # 8 bytes
+                         + unpacked_data[8] / 2 ** 32
+        # 8 bytes
+        self.origin = unpacked_data[9] \
+                      + unpacked_data[10] / 2 ** 32
+        # 8 bytes
         self.receive = unpacked_data[11] \
-                       + unpacked_data[12] / 2 ** 32  # 8 bytes
+                       + unpacked_data[12] / 2 ** 32
+        # 8 bytes
         self.transmit = unpacked_data[13] \
-                        + unpacked_data[14] / 2 ** 32  # 8 bytes
+                        + unpacked_data[14] / 2 ** 32
 
         return self
 

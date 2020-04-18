@@ -18,11 +18,14 @@ def main():
         message, addr = sock.recvfrom(BUFFER_SIZE)
         receive_time = datetime.datetime.now()
 
-        ntppack = create_ntp_response(message, receive_time)
+        ntp_pack = create_ntp_response(message, receive_time)
 
-        ntppack.set_transmit(datetime.datetime.now())
-        sock.sendto(b"there can be your time", addr)
-        print(message)
+        ntp_pack.set_transmit_timestamp(datetime.datetime.now())
+        sock.sendto(ntp_pack
+                    .set_transmit_timestamp(datetime.datetime.now())
+                    .get_bytes(),
+                    addr)
+        print("Responded to " + addr)
 
 
 def create_ntp_response(message, receive_time):
