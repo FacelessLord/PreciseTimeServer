@@ -73,8 +73,6 @@ class NTPPacket:
         return self
 
     def get_bytes(self):
-        # "!B B b b 2I 4s 8I"
-        print(self.ref_id[3])
         return struct.pack(NTPPacket._FORMAT,
                            (self.leap_indicator << 6) +
                            (self.version_number << 3) + self.mode,  # B
