@@ -17,9 +17,9 @@ if len(response[0]) <= 0:
     exit(1)
 
 ntp_packet: NTPPacket = NTPPacket().from_bytes(response[0])
-# time_delta = (Receive – Originate – Arrive + Transmit)/2
+# time_delta = (Receive – Originate – Arrive + Transmit)
 time_delta = (ntp_packet.receive - ntp_packet.origin
-              - arrive_timestamp + ntp_packet.transmit) / 2
+              - arrive_timestamp + ntp_packet.transmit)
 datetime_delta = datetime.timedelta(seconds=time_delta)
 real_time = datetime.datetime.now() + datetime_delta
 

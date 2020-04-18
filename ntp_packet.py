@@ -144,3 +144,9 @@ class NTPPacket:
         for k in kwargs.keys():
             self.__dict__[k] = kwargs[k]
         return self
+
+    def offset(self, seconds):
+        self.reference += seconds
+        self.receive += seconds
+        self.transmit += seconds
+        return self
